@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h1>トランザクションの練習</h1>
+    <h2><%=users.username%>のページ</h2>
+    <h3>現在あなたは、<%=users.money%>円所持しています</h3>
+    <% if (error) { %>
+    <div style="color:red;"><%= error %></div>
+    <% } %>
+
+    <label class="form">誰にいくら送金する？</label>
+    <form class="form" action="/home" method="POST">
+      <input type="text" name="username" placeholder="相手のユーザー名を入力" required>
+      <input type="number" name="sendMoney" placeholder="金額を入力" required>
+      <button type="submit">送金</button>
+    </form>
+</body>
+</html>
