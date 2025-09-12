@@ -20,6 +20,7 @@ declare module 'express-session' {
   interface SessionData {
     userId?: number;
     error: string;
+    message: string;
     // 必要なら他のプロパティも追加
   }
 }
@@ -82,7 +83,7 @@ return Array.isArray(rows) ? rows : [];
 }
 
 app.get('/', (req, res) => {
-   res.send('hello world');
+  res.redirect("/home");
 });
 
 app.get('/home', async (req, res) => {
@@ -95,7 +96,9 @@ app.get('/home', async (req, res) => {
    const users = rows[0];
    const error = req.session.error;
    req.session.error = undefined;
-   res.render('home' , {users, error});
+   const message: any = req.session.message;
+   req.session.message = undefined;
+   res.render('home' , {users, error, message});
 });
 
 app.post('/home', async (req, res) => {
@@ -108,36 +111,43 @@ app.post('/home', async (req, res) => {
 
    const conn = await db.getConnection();
 
+   
    try{
 
       await conn.beginTransaction();//トランザクション開始
 
-   const [myRows]:any = await conn.query('SELECT money FROM users WHERE userId = ?', [userID]);
-   if(!myRows.length){
-      throw new Error("あなたの情報の取得に失敗しました")
-   }
+   const [myRows]:any = await conn.query('SELECT money, username FROM users WHERE userId = ?', [userID]);
+
    const money = myRows[0].money;
+   const myUsername =myRows[0].username;
+   if (sendMoneyNum < 0 || Number.isInteger(sendMoneyNum) == false ){
+      throw new Error("正しい金額を入力してください。")
+   }
    const totalMoney = money - sendMoneyNum;
+   if(myUsername == username){
+      throw new Error("入力したのはあなたのユーザー名です。他のユーザーに送金してください。")
+   }
 
    if (sendMoneyNum > money) {
-         throw new Error("残高不足のためロールバックします");
+         throw new Error("残高不足のためロールバックしました。金額をご確認ください。");
       }
 
    await conn.query('UPDATE users SET money = ? WHERE userId = ?', [totalMoney, userID])//ユーザー側の処理終わり
 
 
    const [yourRows]:any = await conn.query('SELECT money FROM users WHERE username = ?', [username]);
-   if(!yourRows.length) throw new Error("相手ユーザーが見つからなかったのでロールバックします。")
+   if(!yourRows.length) throw new Error("相手ユーザーが見つからなかったのでロールバックしました。ユーザー名をご確認ください。")
 
    const yourMoney = yourRows[0].money;
    const totalYourMoney:any = yourMoney + sendMoneyNum
    await conn.query('UPDATE users SET money = ? WHERE username = ?', [totalYourMoney, username])
 
    await conn.commit();
+   req.session.message = "トランザクションが成功しました"
 
    } catch(e:any) {
       await conn.rollback();
-      req.session.error = e.message || "送金失敗";
+      req.session.error = e.message || "予期せぬエラーが発生しました。もう一度お試しください";
       res.redirect("/home");
    }finally{
       conn.release();

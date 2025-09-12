@@ -12,6 +12,9 @@
     <% if (error) { %>
     <div style="color:red;"><%= error %></div>
     <% } %>
+    <div style="color:rgb(119, 173, 243);">
+    <%= message ? message : null %>
+    </div>
 
     <label class="form">誰にいくら送金する？</label>
     <form class="form" action="/home" method="POST">
