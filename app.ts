@@ -3,11 +3,13 @@ import path from 'path';
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
 import session from 'express-session';
+import helmet from 'helmet';
 const app = express();
 
 app.set('view engine', 'ejs'); // 例：EJSの場合
 app.set('views', path.join(__dirname, 'views')); 
 app.use(express.urlencoded({ extended: true }));
+app.use(helmet());
 
 app.use(session({
   secret: 'your_secret_key', // 任意の文字列
@@ -33,54 +35,60 @@ const db = mysql.createPool({
 });
 
 app.get('/register', (req, res) => {
-   res.render("register");
+   res.render("register" , { error: null });
 });
 
 app.post('/register', async (req, res) => {
     const {username, password, money} = req.body;
-    if(!username || !password || !money) return; 
-
-    const hashedpassword = await bcrypt.hash(password, 10);
+    if(!username || !password || !money) {
+      return res.render("register", {error: "すべての項目を入力してください"});
+    } 
 
     try{
-    await db.query(
+   const hashedpassword = await bcrypt.hash(password, 10);
+   if(!hashedpassword){
+      throw Error;
+   }
+   await db.query(
       'INSERT INTO users (username, password, money) VALUES (?, ?, ?)',
       [username, hashedpassword, money],
     )
    }catch(e){
       console.log(e);
-     return  res.status(500).send("ユーザー登録に失敗しました。")
+     return  res.render("register", {error: "ユーザー登録に失敗しました"});
    }
      res.redirect('/login');
 });
 
 app.get('/login', (req, res) => {
-   res.render('login');
-});
-
-app.post('/login',async (req, res) => {
-   const { username, password } = req.body;
-   if(!username || !password) return;
-
-   const rows = await getUserdata(username);
-   if(!rows)return;
-   const users = rows[0];
-   const hashedPassword = users.password;
-
-
-   const match = await bcrypt.compare(password, hashedPassword);
-   if(match){
-      req.session.userId = users.userId
-      res.redirect('/home');
-   } else {
-      res.status(401).send("パスワードが違います");
-   }
+   res.render('login', { error: null});
 });
 
 async function getUserdata (username: string): Promise<any[]>{
 const [rows] = await db.query('SELECT userId, username, password FROM users WHERE username = ? ', [username]);
 return Array.isArray(rows) ? rows : [];
 }
+
+app.post('/login',async (req, res) => {
+   const { username, password } = req.body;
+   if(!username || !password) return;
+
+   const rows = await getUserdata(username);
+   if(!rows){
+      res.render("login", { error: "ユーザ名が一致しませんでした。"})
+   }
+   const users = rows[0];
+   const hashedPassword = users.password;
+
+   const match = await bcrypt.compare(password, hashedPassword);
+   if(match){
+      req.session.userId = users.userId
+      res.redirect('/home');
+
+   } else {
+      return res.render("login", { error: "パスワードが一致しませんでした。"})
+   }
+});
 
 app.get('/', (req, res) => {
   res.redirect("/home");
@@ -106,6 +114,7 @@ app.post('/home', async (req, res) => {
     if (!userID){
        return res.redirect("/login");
    }
+
    const {username, sendMoney} = req.body
    const sendMoneyNum = Number(sendMoney);
 
@@ -143,18 +152,20 @@ app.post('/home', async (req, res) => {
    await conn.query('UPDATE users SET money = ? WHERE username = ?', [totalYourMoney, username])
 
    await conn.commit();
+
    req.session.message = "トランザクションが成功しました"
+   res.redirect("/home");
 
    } catch(e:any) {
       await conn.rollback();
       req.session.error = e.message || "予期せぬエラーが発生しました。もう一度お試しください";
       res.redirect("/home");
+
    }finally{
       conn.release();
    }
-
-   res.redirect("/home");
 });
+
 
 app.listen(3000, () =>{
    console.log("port3000で起動中");

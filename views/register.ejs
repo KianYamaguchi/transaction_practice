@@ -8,6 +8,7 @@
 <body>
     <h1>登録</h1> 
     <form action="/register" method="POST">
+    <p><%=error ? error : "登録してください"%></p>
     <input type="text" name="username" placeholder="ユーザー名" required>
     <input type="password" name="password" placeholder="パスワード" required>
     <input type="number" name="money" placeholder="所持金を入力" required>

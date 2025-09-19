@@ -8,6 +8,7 @@
 <body>
     <h1>ログイン</h1>
     <form action="/login" method="POST">
+        <p><%= error ? error : "ログインしてください" %></p>
         <input type="text" name="username" placeholder="ユーザー名" required>
         <input type="password" name="password" placeholder="パスワード" required>
         <button type="submit">ログイン</button>
