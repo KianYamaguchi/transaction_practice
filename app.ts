@@ -4,6 +4,7 @@ import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
 import session from 'express-session';
 import helmet from 'helmet';
+import { Request, Response, NextFunction } from 'express';
 const app = express();
 
 app.set('view engine', 'ejs'); // 例：EJSの場合
@@ -33,6 +34,13 @@ const db = mysql.createPool({
   password: "root", // MySQLのパスワード
   database: "money",  // 使用するデータベース名
 });
+
+function sessionValidation(req: Request, res: Response, next: NextFunction){
+   if (!req.session.userId){
+      return res.redirect("/login");
+   }
+   next();
+}
 
 app.get('/register', (req, res) => {
    res.render("register" , { error: null });
@@ -94,36 +102,29 @@ app.get('/', (req, res) => {
   res.redirect("/home");
 });
 
-app.get('/home', async (req, res) => {
+app.get('/home', sessionValidation, async (req, res) => {
+
    const userID = req.session.userId;
-   if (!userID){
-      return res.redirect("/login");
-   }
    const [rows] = await db.query('SELECT userId, username, money FROM users WHERE userId = ?', [userID])
    if (!Array.isArray(rows) || rows.length === 0) return res.status(404).send("ユーザーが見つかりません");
    const users = rows[0];
    const error = req.session.error;
    req.session.error = undefined;
-   const message: any = req.session.message;
+   const message = req.session.message;
    req.session.message = undefined;
    res.render('home' , {users, error, message});
 });
 
-app.post('/home', async (req, res) => {
-    const userID = req.session.userId;
-    if (!userID){
-       return res.redirect("/login");
-   }
+app.post('/home', sessionValidation, async (req, res) => {
 
+   const userID = req.session.userId;
    const {username, sendMoney} = req.body
    const sendMoneyNum = Number(sendMoney);
 
    const conn = await db.getConnection();
-
-   
    try{
 
-      await conn.beginTransaction();//トランザクション開始
+   await conn.beginTransaction();//トランザクション開始
 
    const [myRows]:any = await conn.query('SELECT money, username FROM users WHERE userId = ?', [userID]);
 
