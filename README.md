@@ -3,6 +3,8 @@
 このアプリは、Node.js（Express）と MySQL を使った簡単な送金システムです。  
 ユーザー登録・ログイン・送金処理（トランザクション管理）を学ぶことができます。
 
+---
+
 ## 主な機能
 
 - ユーザー登録（ユーザー名・パスワード・所持金）
@@ -11,51 +13,67 @@
 - 送金はトランザクションで安全に処理
 - エラー時はフラッシュメッセージで通知
 
+---
+
 ## セットアップ
 
-1. 必要なパッケージをインストール
+### 🔧 ローカル環境での実行
 
+1. `TRANSACTION` ディレクトリに移動します。
+2. `.env` ファイルを作成し、以下の環境変数を設定します：
+
+   ```env
+   MYSQL_ROOT_PASSWORD=A
+   SECRET_KEY=B
+   DB_HOST=localhost
+   DB_USER=C
+   DB_PASSWORD=D
+   DB_NAME=money
    ```
+
+3. MySQL をローカルにインストールします。
+4. `init.sql` の内容を MySQL に実行し、初期データベースを作成します。
+5. 依存パッケージをインストールします：
+
+   ```bash
    npm install
    ```
 
-2. MySQL でデータベースとテーブルを作成
+6. アプリを起動します：
 
-   ```sql
-   CREATE DATABASE money;
-   USE money;
-
-   CREATE TABLE users (
-     userId INT AUTO_INCREMENT PRIMARY KEY,
-     username VARCHAR(50) NOT NULL UNIQUE,
-     password VARCHAR(255) NOT NULL,
-     money INT NOT NULL
-   );
+   ```bash
+   nodemon app.ts
    ```
 
-3. `.env`ファイル（必要なら）や DB 接続情報を編集
+7. ブラウザで [http://localhost:3000](http://localhost:3000) にアクセスします。
 
-## 起動方法
+---
 
-```
-npm start
-```
+### 🐳 Docker 環境での実行
 
-または
+1. Docker をインストールします。
+2. `.env` ファイルを作成し、以下の環境変数を設定します：
 
-```
-node app.js
-```
+   ```env
+   MYSQL_ROOT_PASSWORD=A
+   SECRET_KEY=B
+   DB_HOST=db
+   DB_USER=C
+   DB_PASSWORD=D
+   DB_NAME=money
+   ```
 
-## 画面構成
+3. 以下のコマンドでコンテナをビルド＆起動します：
 
-- `/register` … ユーザー登録画面
-- `/login` … ログイン画面
-- `/home` … ログイン後の送金・残高表示画面
+   ```bash
+   docker-compose up --build
+   ```
 
-## 注意事項
+4. ブラウザで [http://localhost:3000](http://localhost:3000) にアクセスします。
 
-- ローカル開発用のため、セキュリティやバリデーションは最低限です。
-- パスワードは bcrypt でハッシュ化しています。
-- 送金処理はトランザクションで管理され、失敗時はロールバックされます。
-- エラーはフラッシュメッセージで表示されます。
+---
+
+### 💡 補足
+
+- `.env` の `DB_HOST` は、**ローカル実行時は `localhost`、Docker 実行時は `db`** に設定してください。
+- Docker 環境では、初回起動時に `init.sql` によりデータベースが自動で初期化されます。
