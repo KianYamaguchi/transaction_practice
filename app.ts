@@ -4,18 +4,24 @@ import mysql from 'mysql2/promise';
 import bcrypt from 'bcrypt';
 import session from 'express-session';
 import helmet from 'helmet';
+import dotenv from 'dotenv';
+import { Request, Response, NextFunction } from 'express';
 const app = express();
+dotenv.config();
 
-app.set('view engine', 'ejs'); // 例：EJSの場合
+app.set('view engine', 'ejs'); 
 app.set('views', path.join(__dirname, 'views')); 
 app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
 
+if(!process.env.SECRET_KEY){
+  throw new Error("環境変数に設定されていません。");
+}
 app.use(session({
-  secret: 'your_secret_key', // 任意の文字列
+  secret: process.env.SECRET_KEY,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // ローカル開発ならfalse
+  cookie: { secure: false }
 }));
 
 declare module 'express-session' {
@@ -27,12 +33,23 @@ declare module 'express-session' {
   }
 }
 
+if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_PASSWORD || !process.env.DB_NAME) {
+  throw new Error("環境変数に設定されていません。");
+}
 const db = mysql.createPool({
-  host: "localhost", // MySQLサーバーのホスト名
-  user: "root",      // MySQLのユーザー名
-  password: "root", // MySQLのパスワード
-  database: "money",  // 使用するデータベース名
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : 3306,
 });
+
+function sessionValidation(req: Request, res: Response, next: NextFunction){
+   if (!req.session.userId){
+      return res.redirect("/login");
+   }
+   next();
+}
 
 app.get('/register', (req, res) => {
    res.render("register" , { error: null });
@@ -44,7 +61,7 @@ app.post('/register', async (req, res) => {
       return res.render("register", {error: "すべての項目を入力してください"});
     } 
 
-    try{
+   try{
    const hashedpassword = await bcrypt.hash(password, 10);
    if(!hashedpassword){
       throw Error;
@@ -94,41 +111,34 @@ app.get('/', (req, res) => {
   res.redirect("/home");
 });
 
-app.get('/home', async (req, res) => {
+app.get('/home', sessionValidation, async (req, res) => {
+
    const userID = req.session.userId;
-   if (!userID){
-      return res.redirect("/login");
-   }
    const [rows] = await db.query('SELECT userId, username, money FROM users WHERE userId = ?', [userID])
    if (!Array.isArray(rows) || rows.length === 0) return res.status(404).send("ユーザーが見つかりません");
    const users = rows[0];
    const error = req.session.error;
    req.session.error = undefined;
-   const message: any = req.session.message;
+   const message = req.session.message;
    req.session.message = undefined;
    res.render('home' , {users, error, message});
 });
 
-app.post('/home', async (req, res) => {
-    const userID = req.session.userId;
-    if (!userID){
-       return res.redirect("/login");
-   }
+app.post('/home', sessionValidation, async (req, res) => {
 
+   const userID = req.session.userId;
    const {username, sendMoney} = req.body
    const sendMoneyNum = Number(sendMoney);
 
    const conn = await db.getConnection();
-
-   
    try{
 
-      await conn.beginTransaction();//トランザクション開始
+   await conn.beginTransaction();//トランザクション開始
 
    const [myRows]:any = await conn.query('SELECT money, username FROM users WHERE userId = ?', [userID]);
 
    const money = myRows[0].money;
-   const myUsername =myRows[0].username;
+   const myUsername = myRows[0].username;
    if (sendMoneyNum < 0 || Number.isInteger(sendMoneyNum) == false ){
       throw new Error("正しい金額を入力してください。")
    }
